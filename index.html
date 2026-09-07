@@ -135,7 +135,13 @@ body{margin:0;font-family:'Baloo 2',ui-rounded,'SF Pro Rounded','Segoe UI',syste
  box-shadow:0 1px 4px rgba(0,0,0,.5),0 0 0 2px rgba(255,255,255,.9)}
 .badge.corner.ice{background:#1769a3;color:#fff}
 .badge.corner.lock{background:#2e2a48;color:#fff}
-.badge.corner.bomb{background:#c0202c;color:#fff}
+.badge.corner.bomb{background:#c0202c;color:#fff;animation:badgeTick var(--tick,1s) steps(1) infinite}
+@keyframes badgeTick{0%,60%{background:#c0202c}61%,100%{background:#ff5a5f}}
+/* a live bomb pulses, and pulses faster as its count runs down */
+.p.ticking{animation:bombPulse var(--tick,1s) ease-in-out infinite alternate}
+@keyframes bombPulse{from{filter:none}
+ to{filter:drop-shadow(0 0 9px #ff3b3b) drop-shadow(0 0 18px rgba(255,60,60,.55)) brightness(1.1)}}
+.p.ticking.drag{animation:none}
 .badge.corner.key{background:#e5a20b;color:#3a2600}
 .badge.corner.layer{background:#7a4bd8;color:#fff}
 .badge.big{background:#1769a3;color:#fff;box-shadow:0 0 0 2.5px rgba(255,255,255,.92)}
@@ -535,6 +541,7 @@ function drawPiece(p){
   p.mx=Math.min(...cs.map(x=>x[0])); p.my=Math.min(...cs.map(x=>x[1]));
   p.w=Math.max(...cs.map(x=>x[0]))-p.mx+1; p.h=Math.max(...cs.map(x=>x[1]))-p.my+1;
   const done = p.kind==='w' && whole(p);
+  p.el.classList.remove('ticking'); p.el.style.removeProperty('--tick');
   p.el.className='p '+(p.kind==='r'?'rock c-stone':(done?'done c-'+CATS[p.cat].color:('frag '+(p.tint||'c-stone'))))
     + ((p.gone||p.hidden)?' gone':'') + (p.kind==='w'&&held(p)==='locked'?' locked':'');
   p.el.innerHTML='';
@@ -554,7 +561,12 @@ function drawPiece(p){
     let mark=null;
     if(p.freeze && exitCount<p.freeze){ p.el.classList.add('frozen'); mark=['ice','\u2744'+(p.freeze-exitCount)]; }
     else if(state==='locked') mark=['lock','\u{1F512}'];
-    else if(p.bomb!=null) mark=['bomb','\u23F1'+Math.max(0,p.bomb-exitCount)];
+    else if(p.bomb!=null){
+      const left=Math.max(0,p.bomb-exitCount);
+      mark=['bomb','\u23F1'+left];
+      p.el.classList.add('ticking');
+      p.el.style.setProperty('--tick', left<=1?'.42s':left===2?'.7s':'1.05s');
+    }
     else if(p.isKey && !p.gone) mark=['key','\u{1F511}'];
     else if(p.under) mark=['layer','\u2263'];
     if(mark){ p.bCorner=el('div','badge corner '+mark[0],mark[1]); p.el.appendChild(p.bCorner); }
@@ -1005,7 +1017,7 @@ function doMerge(a,b){                       // a is dragged into b; b keeps its
   a.under=null;
   if(a.isKey){ b.isKey=true; a.isKey=false; }
   if(a.bomb!=null) b.bomb = (b.bomb==null) ? a.bomb : Math.min(b.bomb,a.bomb);
-  a.bomb=null;
+  a.bomb=null; a.el.classList.remove('ticking');
   P.forEach(q=>{ if(q.lock===a.n) q.lock=b.n; });
   a.gone=true; a.el.classList.add('out');
   a.el.style.transform=`translate(${a.mx*cell}px,${a.my*cell}px) scale(.55)`;
